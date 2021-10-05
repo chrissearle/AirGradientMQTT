@@ -88,12 +88,14 @@ public:
         pubSubClient->loop();
     }
 
-    void publish(int pm2, int co2, float t, int rh)
+    void publish(int pm1, int pm2, int pm10, int co2, float t, int rh)
     {
         publishToTopic(location, "temperature", t);
         publishToTopic(location, "humidity", rh);
         publishToTopic(location, "co2", co2);
+        publishToTopic(location, "pm1", pm1);
         publishToTopic(location, "pm2", pm2);
+        publishToTopic(location, "pm10", pm10);
     }
 };
 

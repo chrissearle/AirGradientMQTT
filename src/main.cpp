@@ -111,7 +111,15 @@ void loop()
 {
   sensors->refresh();
 
+  int pm1 = processInt("PM1", sensors->getPM1());
+
+  delay(3000);
+
   int pm2 = processInt("PM2", sensors->getPM2());
+
+  delay(3000);
+
+  int pm10 = processInt("PM10", sensors->getPM10());
 
   delay(3000);
 
@@ -131,6 +139,6 @@ void loop()
     Log.infoln("Publishing to MQTT");
 
     mqtt->keepAlive();
-    mqtt->publish(pm2, co2, t, rh);
+    mqtt->publish(pm1, pm2, pm10, co2, t, rh);
   }
 }
