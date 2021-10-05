@@ -36,7 +36,7 @@ public:
         display->display();
     }
 
-    void showInt(String title, int value) {
+    void showInt(String title, unsigned int value) {
         showTextRectangle(title, String(value), false);
     }
 
