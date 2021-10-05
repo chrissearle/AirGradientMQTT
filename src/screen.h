@@ -35,6 +35,20 @@ public:
         display->drawString(32, 36, ln2);
         display->display();
     }
+
+    void showInt(String title, int value) {
+        showTextRectangle(title, String(value), false);
+    }
+
+    void showFloat(String title, float value) {
+        char output[6];
+        snprintf(output, 5, "%.2f", value);
+        showTextRectangle(title, String(output), false);
+    }
+
+    void showUnavailable(String title) {
+        showTextRectangle("No", title, false);
+    }
 };
 
 #endif

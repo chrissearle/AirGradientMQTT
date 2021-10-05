@@ -3,28 +3,25 @@
 #include <WiFiManager.h>
 #include <ESP8266WiFi.h>
 #include <ArduinoLog.h>
-#include <AirGradient.h>
 
 #include "screen.h"
 #include "mqtt.h"
+#include "sensors.h"
 
 #define SENDMQ 0
 
 Screen *display;
 MQTT *mqtt;
+Sensors *sensors;
 
 WiFiClient wifiClient;
-
-AirGradient ag = AirGradient();
-
-bool hasPM2 = true;
-bool hasCO2 = false;
-bool hasSHT = false;
 
 bool mqttEnabled = false;
 
 void connectToWifi()
 {
+  Log.infoln("Connecting to wifi");
+
   WiFiManager wifiManager;
 
   String HOTSPOT = "AIRGRADIENT-" + String(ESP.getChipId(), HEX);
@@ -48,6 +45,31 @@ void connectToWifi()
     display->showTextRectangle(String(ip[2]), String(ip[3]), false);
 
     delay(2000);
+    
+    Log.infoln("Wifi connected");
+  }
+}
+
+void setupDisplay() {
+  Log.infoln("Initializing Display");
+
+  display = new Screen(0x3c);
+  display->showTextRectangle("Init", String(ESP.getChipId(), HEX), true);
+}
+
+void setupSensors() {
+  Log.infoln("Initializing Sensors");
+
+  sensors = new Sensors(true, false, false);
+}
+
+void setupMQTT() {
+    if (mqttEnabled) {
+    Log.infoln("Initializing MQTT");
+
+    mqtt = new MQTT("LocationName", wifiClient, "192.168.1.xxx", "TopicName", NULL, NULL);
+  } else {
+    Log.infoln("MQTT not enabled");
   }
 }
 
@@ -57,104 +79,51 @@ void setup()
 
   Log.begin(LOG_LEVEL_VERBOSE, &Serial);
 
-  Log.infoln("Initializing Display");
-
-  display = new Screen(0x3c);
-  display->showTextRectangle("Init", String(ESP.getChipId(), HEX), true);
-
-  if (hasPM2) {
-    Log.infoln("Initializing PMS");
-
-    ag.PMS_Init();
-  } else {
-    Log.infoln("PM2 not enabled");
-  }
-
-  if (hasCO2) {
-    Log.infoln("Initializing CO2");
-
-    ag.CO2_Init();
-  } else {
-    Log.infoln("CO2 not enabled");
-  }
-
-
-  if (hasSHT) {
-    Log.infoln("Initializing SHT");
-
-    ag.TMP_RH_Init(0x44);
-  } else {
-    Log.infoln("SHT not enabled");
-  }
-
-  Log.infoln("Connecting to wifi");
-
+  setupDisplay();
   connectToWifi();
-
-  Log.infoln("Wifi connected");
-
-  delay(2000);
-
-  if (mqttEnabled) {
-    Log.infoln("Initializing MQTT");
-
-    mqtt = new MQTT("LocationName", wifiClient, "192.168.1.xx", "TopicName", NULL, NULL);
-  } else {
-    Log.infoln("MQTT not enabled");
-  }
+  setupSensors();
+  setupMQTT();
 
   Log.infoln("Setup Complete");
 }
 
+int processInt(String name, int value) {
+  if (value >= 0) {
+    display->showInt(name, value);
+  } else {
+    display->showUnavailable(name);
+  }
+
+  return value;
+}
+
+float processFloat(String name, float value) {
+  if (value >= 0) {
+    display->showFloat(name, value);
+  } else {
+    display->showUnavailable(name);
+  }
+
+  return value;
+}
+
 void loop()
 {
-  int PM2 = -1;
+  sensors->refresh();
 
-  if (hasPM2) {
-    Log.infoln("Reading PM2");
-
-    PM2 = ag.getPM2_Raw();
-  
-    Log.infoln("Read PM2 %d", PM2);
-
-    display->showTextRectangle("PM2", String(PM2), false);
-  } else {
-    display->showTextRectangle("No", "PM2", false);
-  }
+  int pm2 = processInt("PM2", sensors->getPM2());
 
   delay(3000);
 
-  int CO2 = -1;
-
-  if (hasCO2) {
-    Log.infoln("Reading CO2");
-
-    CO2 = ag.getCO2_Raw();
-  
-    Log.infoln("Read CO2 %d", CO2);
-
-    display->showTextRectangle("CO2", String(CO2), false);
-  } else {
-    display->showTextRectangle("No", "CO2", false);
-  }
+  int co2 = processInt("CO2", sensors->getPM2());
 
   delay(3000);
 
-  TMP_RH result;
-  result.t = -1.0;
-  result.rh = -1;
+  float t = processFloat("T", sensors->getT());
 
-  if (hasSHT) {
-    Log.infoln("Reading SHT");
+  delay(3000);
 
-    TMP_RH result = ag.periodicFetchData();
-
-    Log.infoln("Read SHT %.2f %d", result.t, result.rh);
-
-    display->showTextRectangle(String(result.t), String(result.rh), false);
-  } else {
-    display->showTextRectangle("No", "SHT", false);
-  }
+  int rh = processInt("RH", sensors->getRH());
 
   delay(3000);
 
@@ -162,6 +131,6 @@ void loop()
     Log.infoln("Publishing to MQTT");
 
     mqtt->keepAlive();
-    mqtt->publish(PM2, CO2, result.t, result.rh);
+    mqtt->publish(pm2, co2, t, rh);
   }
 }
