@@ -9,6 +9,7 @@
 #include "sensors.h"
 
 #include "pms.h"
+#include "co2.h"
 
 #define SENDMQ 0
 
@@ -16,11 +17,11 @@ Screen *display;
 MQTT *mqtt;
 Sensors *sensors;
 PmsSensor *pms;
+CO2Sensor *co2;
 
 WiFiClient wifiClient;
 
 bool mqttEnabled = false;
-bool co2Enabled = false;
 bool shtEnabled = false;
 
 const int displayDelay = 1000;
@@ -71,8 +72,9 @@ void setupSensors()
 {
   Log.infoln("Initializing Sensors");
 
-  sensors = new Sensors(co2Enabled, shtEnabled);
+  sensors = new Sensors(shtEnabled);
   pms = new PmsSensor();
+  co2 = new CO2Sensor();
 }
 
 void setupMQTT()
@@ -165,14 +167,20 @@ void loop()
     delay(displayDelay);
   }
 
+  co2->refresh();
+
+  if (co2->isValid())
+  {
+    processInt("CO2", co2->co2(), true);
+    delay(displayDelay);
+  }
+
+
   // Air Gradient Data
 
   /*
   sensors->refresh();
 
-  int co2 = processInt("CO2", sensors->getCO2(), co2Enabled);
-
-    delay(displayDelay);
 
   float t = processFloat("T", sensors->getT(), shtEnabled);
 
